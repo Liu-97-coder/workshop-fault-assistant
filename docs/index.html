@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>车间设备故障问答助手 · 在线演示</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    background: #f0f4f7;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    color: #222;
+  }
+  header {
+    background: #1f6feb;
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.14);
+  }
+  .brand { font-size: 16px; font-weight: 600; line-height: 1.35; }
+  .brand small { display: block; font-weight: 400; font-size: 11.5px; opacity: .88; margin-top: 2px; }
+  .actions { margin-left: auto; display: flex; gap: 8px; }
+  .hbtn {
+    color: #fff; background: transparent; border: 1px solid rgba(255,255,255,.55);
+    border-radius: 20px; padding: 4px 11px; font-size: 12px; cursor: pointer;
+    text-decoration: none; white-space: nowrap; font-family: inherit;
+  }
+  .hbtn:hover { background: rgba(255,255,255,.16); }
+  #status {
+    font-size: 12px; color: #4a6785; background: #e4eefb;
+    padding: 7px 18px; border-bottom: 1px solid #d5e2f2;
+  }
+  #chat {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 18px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 14px;
+  }
+  .bubble.user { align-self: flex-end; background: #1f6feb; color: #fff; border-bottom-right-radius: 3px; }
+  .bubble.bot {
+    align-self: flex-start; background: #fff; color: #222; border: 1px solid #e3e8ee;
+    border-bottom-left-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  }
+  .tip { align-self: center; color: #8a94a6; font-size: 12px; text-align: center; line-height: 1.6; }
+  .chips {
+    display: flex; gap: 8px; overflow-x: auto; padding: 8px 18px 0;
+    background: #f0f4f7; scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto; font-size: 12px; padding: 6px 12px; border-radius: 20px;
+    border: 1px solid #d3dde8; background: #fff; color: #4a4a4a; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  .chip:hover { border-color: #1f6feb; color: #1f6feb; }
+  footer {
+    padding: 10px 18px 14px; background: #f0f4f7; display: flex; gap: 10px;
+    border-top: 1px solid #e3e8ee;
+  }
+  #input {
+    flex: 1; padding: 10px 14px; border: 1px solid #d4dbe3; border-radius: 10px;
+    font-size: 14px; outline: none; font-family: inherit; background: #fff;
+  }
+  #input:focus { border-color: #1f6feb; }
+  #send {
+    padding: 10px 22px; background: #1f6feb; color: #fff; border: none;
+    border-radius: 10px; font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  #send:hover { background: #1857c3; }
+  @media (max-width: 480px) {
+    .brand small { display: none; }
+    .bubble { max-width: 90%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">车间设备故障问答助手<small>在线演示 · 多轮追问 · 逻辑在浏览器本地运行</small></div>
+  <div class="actions">
+    <button id="reset" class="hbtn" type="button">重新开始</button>
+    <a class="hbtn" href="https://github.com/Liu-97-coder/workshop-fault-assistant" target="_blank" rel="noopener">源码</a>
+  </div>
+</header>
+
+<div id="status">未开始 · 说一个故障现象开始</div>
+
+<div id="chat">
+  <div class="tip">直接说现象就能开始排查，助手会一步步追问，答完一步推进下一步。<br>比如：主轴异响、液压压力上不去、电机过载、机床不启动、导轨卡滞、冷却液泄漏。</div>
+</div>
+
+<div class="chips" id="chips"></div>
+
+<footer>
+  <input id="input" type="text" placeholder="描述一下故障，比如：主轴异响" autocomplete="off">
+  <button id="send" type="button">发送</button>
+</footer>
+
+<script>
+/* 由 fault_kb.py 自动生成，勿手改 */
+window.__FAULT_CASES__ = [
+ {
+  "name": "主轴异响",
+  "keywords": [
+   "主轴",
+   "异响",
+   "啸叫",
+   "嗡嗡"
+  ],
+  "answer": "主轴异响一般按这几步查：\n1. 轴承磨损或润滑不良——转速升高时响得更厉害，多半是轴承，停机检查、补油或换轴承；\n2. 皮带松或老化——会打滑响，检查张紧度，老化就换；\n3. 刀柄锥面不干净或拉刀不良——装刀后明显，清洁锥孔和刀柄；\n4. 高速时周期性振动啸叫——可能动平衡不好，需重新做动平衡。",
+  "steps": [
+   {
+    "question": "异响是高速时更明显，还是低速时更明显？",
+    "branches": [
+     {
+      "keywords": [
+       "是",
+       "有",
+       "高速",
+       "越快",
+       "转速高",
+       "高"
+      ],
+      "advice": "转速越高响得越厉害，多半是轴承问题。建议停机检查主轴轴承，磨损严重就换新轴承并换新油脂。",
+      "goto": 1
+     },
+     {
+      "keywords": [
+       "没有",
+       "没",
+       "不是",
+       "低速",
+       "慢速",
+       "低"
+      ],
+      "advice": "低速时响，多为皮带或传动件问题。检查皮带张紧度和磨损情况，老化破损就换。",
+      "goto": 1
+     }
+    ]
+   },
+   {
+    "question": "是不是已经加过油或换过轴承了？",
+    "branches": [
+     {
+      "keywords": [
+       "换过",
+       "加过",
+       "加油",
+       "加了",
+       "补过",
+       "是"
+      ],
+      "advice": "已经加油/换过还响，基本可以排除润滑问题，重点查轴承磨损或动平衡，建议拆检轴承或送厂家检测。",
+      "goto": -1
+     },
+     {
+      "keywords": [
+       "没有",
+       "还没",
+       "没",
+       "不是"
+      ],
+      "advice": "那先按上面步骤检查润滑和皮带，若仍响再考虑轴承和动平衡。",
+      "goto": -1
+     }
+    ]
+   }
+  ],
+  "triage": [
+   {
+    "keywords": [
+     "高速",
+     "转速高",
+     "越快",
+     "转速快",
+     "高"
+    ],
+    "advice": "转速越高响得越厉害，多半是轴承问题。建议停机检查主轴轴承，磨损严重就换新轴承并换新油脂。"
+   },
+   {
+    "keywords": [
+     "低速",
+     "转速低",
+     "慢速",
+     "低"
+    ],
+    "advice": "低速时响，多为皮带或传动件问题。检查皮带张紧度和磨损情况，老化破损就换。"
+   },
+   {
+    "keywords": [
+     "换过",
+     "加油",
+     "加了",
+     "补过"
+    ],
+    "advice": "已经加油/换过还响，基本可以排除润滑，重点查轴承磨损或动平衡，建议拆检轴承或送厂家检测。"
+   }
+  ]
+ },
+ {
+  "name": "液压压力不足",
+  "keywords": [
+   "液压",
+   "压力",
+   "上不去",
+   "没压力",
+   "升压"
+  ],
+  "answer": "液压压力上不去，按顺序排查：\n1. 液压油量不足或变质——先看油位，不够就补，发黑变质要整体换；\n2. 溢流阀设定偏低或阀芯卡滞——检查设定压力、清洗阀芯；\n3. 泵吸不上油——进油滤网堵了或管路漏气，清洗滤网、紧管接头；\n4. 系统内漏——油缸、阀组密封件老化，更换密封件。",
+  "steps": [
+   {
+    "question": "液压油位是不是偏低？",
+    "branches": [
+     {
+      "keywords": [
+       "是",
+       "有",
+       "缺",
+       "低",
+       "不够",
+       "少"
+      ],
+      "advice": "先补充液压油到标准油位，再观察压力能否建立。",
+      "goto": 1
+     },
+     {
+      "keywords": [
+       "没有",
+       "没",
+       "不是",
+       "够",
+       "正常",
+       "高",
+       "偏高"
+      ],
+      "advice": "油位正常或偏高还上不去，重点查溢流阀设定是否偏低、阀芯是否卡滞，以及泵吸油是否畅通。",
+      "goto": -1
+     }
+    ]
+   },
+   {
+    "question": "补油之后，压力还是上不去吗？",
+    "branches": [
+     {
+      "keywords": [
+       "是",
+       "有",
+       "还是",
+       "仍"
+      ],
+      "advice": "补油后仍上不去，就查溢流阀设定和泵吸油口是否堵塞、管路是否漏气。",
+      "goto": -1
+     },
+     {
+      "keywords": [
+       "没有",
+       "没",
+       "不是",
+       "好了",
+       "可以"
+      ],
+      "advice": "补油后压力正常，那就是油量不足导致的，记得定期检查油位和油液是否变质。",
+      "goto": -1
+     }
+    ]
+   }
+  ],
+  "triage": [
+   {
+    "keywords": [
+     "缺油",
+     "油位",
+     "油少",
+     "油不够"
+    ],
+    "advice": "先补充液压油到标准油位，再观察压力能否建立。补油后仍上不去，就查溢流阀和泵吸油。"
+   },
+   {
+    "keywords": [
+     "漏",
+     "渗",
+     "滴"
+    ],
+    "advice": "有漏油，先处理泄漏点（接头、密封），再补油测试。泄漏往往是压力上不去的主要原因。"
+   }
+  ]
+ },
+ {
+  "name": "电机过载报警",
+  "keywords": [
+   "电机",
+   "过载",
+   "烧",
+   "报警",
+   "跳闸"
+  ],
+  "answer": "电机反复报过载，常见原因：\n1. 负载太大——降低进给或转速，减少单次切深；\n2. 机械卡阻——导轨、丝杠、轴承卡住，检查润滑和是否有卡滞；\n3. 电机自身问题——测三相电流是否平衡、绝缘是否合格；\n4. 保护参数设太小——核对铭牌额定电流，重新整定。",
+  "steps": [
+   {
+    "question": "是刚启动就报过载，还是干一会才报？",
+    "branches": [
+     {
+      "keywords": [
+       "刚启动",
+       "一开",
+       "一启动",
+       "开机就",
+       "是"
+      ],
+      "advice": "刚启动就报，多为机械卡阻或保护参数太小。先手动盘车看是否卡住，再核对热继电器/变频器设定值。",
+      "goto": -1
+     },
+     {
+      "keywords": [
+       "干一会",
+       "运行中",
+       "干到一半",
+       "一段时间",
+       "不是"
+      ],
+      "advice": "运行一段才报，多为负载偏大或散热不良。降低进给/转速，并检查电机散热和通风。",
+      "goto": -1
+     }
+    ]
+   }
+  ],
+  "triage": [
+   {
+    "keywords": [
+     "刚启动",
+     "一开",
+     "一启动",
+     "开机就"
+    ],
+    "advice": "刚启动就报，多为机械卡阻或保护参数太小。先手动盘车看是否卡住，再核对热继电器/变频器设定值。"
+   },
+   {
+    "keywords": [
+     "干一会",
+     "运行中",
+     "干到一半",
+     "一段时间"
+    ],
+    "advice": "运行一段才报，多为负载偏大或散热不良。降低进给/转速，并检查电机散热和通风。"
+   },
+   {
+    "keywords": [
+     "卡",
+     "转不动",
+     "盘不动"
+    ],
+    "advice": "机械卡阻可能性大。检查导轨、丝杠、轴承是否卡滞，手动盘车确认。"
+   }
+  ]
+ },
+ {
+  "name": "机床无法启动",
+  "keywords": [
+   "不启动",
+   "没反应",
+   "开不了机",
+   "无法启动",
+   "不通电"
+  ],
+  "answer": "机床没反应，按顺序查：\n1. 总电源/空气开关是否合上，电压是否正常；\n2. 急停按钮是否被按下没复位；\n3. 门联锁、防护开关是否到位；\n4. 控制柜保险丝或断路器是否跳开。",
+  "steps": [
+   {
+    "question": "启动按钮按下去，灯亮不亮？",
+    "branches": [
+     {
+      "keywords": [
+       "亮",
+       "有",
+       "是"
+      ],
+      "advice": "灯亮说明控制电源正常。接下来确认接触器的情况：",
+      "goto": 1
+     },
+     {
+      "keywords": [
+       "不亮",
+       "没有",
+       "没",
+       "无",
+       "不是"
+      ],
+      "advice": "灯不亮，问题多在电源侧：①总电源/空气开关是否合上、电压是否正常；②急停是否复位；③控制柜保险或断路器是否跳开。",
+      "goto": 2
+     }
+    ]
+   },
+   {
+    "question": "有没有听到接触器吸合的声音？",
+    "branches": [
+     {
+      "keywords": [
+       "有",
+       "是",
+       "吸合",
+       "咔",
+       "嗒"
+      ],
+      "advice": "有吸合声，说明控制回路通，问题在负载侧：检查电机、主接触器触点、接线是否松动或缺相。",
+      "goto": -1
+     },
+     {
+      "keywords": [
+       "没有",
+       "没",
+       "不是",
+       "无声"
+      ],
+      "advice": "没有吸合声，说明控制回路没接通：重点查急停按钮、启动按钮触点、门联锁开关和控制回路保险。",
+      "goto": -1
+     }
+    ]
+   },
+   {
+    "question": "有没有断路器或保险丝跳开/烧断？",
+    "branches": [
+     {
+      "keywords": [
+       "跳",
+       "烧",
+       "断了",
+       "是",
+       "有"
+      ],
+      "advice": "断路器/保险跳开，先查明过载或短路原因再复位，不能直接合闸硬试。重点查电机、电缆绝缘和相间短路。",
+      "goto": -1
+     },
+     {
+      "keywords": [
+       "没有",
+       "没",
+       "不是"
+      ],
+      "advice": "电源侧正常，那就重点查门联锁/防护开关是否到位，以及启动按钮触点是否接触不良。",
+      "goto": -1
+     }
+    ]
+   }
+  ],
+  "triage": [
+   {
+    "keywords": [
+     "灯亮",
+     "亮着",
+     "亮了",
+     "亮"
+    ],
+    "advice": "控制灯亮说明控制电源正常。下一步重点查：①接触器有没有吸合；②防护门联锁、启动按钮触点；③各断路器是否跳闸。"
+   },
+   {
+    "keywords": [
+     "灯不亮",
+     "不亮",
+     "没亮",
+     "不发光"
+    ],
+    "advice": "灯不亮，问题多在电源侧：①总电源/空气开关是否合上、电压是否正常；②急停是否复位；③控制柜保险或断路器是否跳开。"
+   },
+   {
+    "keywords": [
+     "有声音",
+     "吸合",
+     "咔",
+     "嗒"
+    ],
+    "advice": "有接触器吸合声，说明控制回路通，问题在负载侧：检查电机、主接触器触点、接线是否松动或缺相。"
+   },
+   {
+    "keywords": [
+     "没声音",
+     "没有声音",
+     "没反应",
+     "无声"
+    ],
+    "advice": "没有吸合声，说明控制回路没接通：重点查急停按钮、启动按钮触点、门联锁开关和控制回路保险。"
+   },
+   {
+    "keywords": [
+     "跳闸",
+     "跳了",
+     "保险烧",
+     "保险断"
+    ],
+    "advice": "断路器/保险跳开，先查明过载或短路原因再复位，不能直接合闸硬试。重点查电机、电缆绝缘和相间短路。"
+   }
+  ]
+ },
+ {
+  "name": "导轨卡滞爬行",
+  "keywords": [
+   "导轨",
+   "卡",
+   "爬行",
+   "拖不动",
+   "移动不顺畅"
+  ],
+  "answer": "导轨卡滞或爬行，多和润滑有关：\n1. 润滑不足——检查导轨润滑系统是否供油正常，补润滑脂/油；\n2. 导轨拉伤或积屑——清理导轨面，检查有无拉伤、毛刺；\n3. 镶条/压板太紧——适当调整松紧；\n4. 伺服/液压进给异常——检查进给是否憋劲。",
+  "steps": [
+   {
+    "question": "低速时是不是更明显？",
+    "branches": [
+     {
+      "keywords": [
+       "是",
+       "有",
+       "低速",
+       "慢速",
+       "低"
+      ],
+      "advice": "低速更明显，典型是润滑不足或摩擦副粘滞。先确保导轨润滑充分，再检查刮研面是否拉伤。",
+      "goto": -1
+     },
+     {
+      "keywords": [
+       "没有",
+       "没",
+       "不是",
+       "高"
+      ],
+      "advice": "低速不明显，重点检查镶条/压板是否太紧、进给是否憋劲，以及导轨是否拉伤有毛刺。",
+      "goto": -1
+     }
+    ]
+   }
+  ],
+  "triage": [
+   {
+    "keywords": [
+     "低速",
+     "慢速",
+     "慢"
+    ],
+    "advice": "低速爬行、高速正常，典型是润滑不足或摩擦副粘滞。先确保导轨润滑充分，再检查刮研面是否拉伤。"
+   },
+   {
+    "keywords": [
+     "拉伤",
+     "有痕",
+     "毛刺",
+     "划伤"
+    ],
+    "advice": "导轨有拉伤或积屑，先清理毛刺和积屑；拉伤严重需重新刮研或更换，不要强行运行。"
+   }
+  ]
+ },
+ {
+  "name": "冷却液泄漏",
+  "keywords": [
+   "漏",
+   "渗",
+   "滴",
+   "冷却液",
+   "漏水"
+  ],
+  "answer": "冷却液泄漏，重点查这几处：\n1. 冷却液管路接头、软管是否老化开裂；\n2. 水泵密封是否损坏；\n3. 水箱、液位开关处是否渗漏；\n4. 机床防护罩缝隙、回液通道是否堵塞导致外溢。",
+  "steps": [
+   {
+    "question": "停机的时候也会漏吗？",
+    "branches": [
+     {
+      "keywords": [
+       "会",
+       "是",
+       "有",
+       "也漏"
+      ],
+      "advice": "停机也漏，多为管路接头、软管或水箱自身渗漏。顺着液体痕迹找漏点，老化的软管直接换。",
+      "goto": -1
+     },
+     {
+      "keywords": [
+       "不会",
+       "没",
+       "没有",
+       "不是"
+      ],
+      "advice": "只有运行时漏，多为水泵密封或回液堵塞。检查泵密封、回液通道是否通畅。",
+      "goto": -1
+     }
+    ]
+   }
+  ],
+  "triage": [
+   {
+    "keywords": [
+     "停机漏",
+     "停着漏",
+     "静止",
+     "不运行时"
+    ],
+    "advice": "停机也漏，多为管路接头、软管或水箱自身渗漏。顺着液体痕迹找漏点，老化的软管直接换。"
+   },
+   {
+    "keywords": [
+     "开机喷",
+     "运行漏",
+     "一开就",
+     "喷"
+    ],
+    "advice": "运行时才漏，多为水泵密封、压力过高或回液堵塞。检查泵密封和回液通道是否通畅。"
+   }
+  ]
+ }
+];
+
+</script>
+<script>
+/* 车间设备故障问答助手 —— 浏览器端逻辑
+ * 与 Python 版 fault_kb.py / qa.py 一一对应（多步追问状态机、否定词识别、快捷分诊）。
+ * 不依赖 DOM，可在 Node 里直接 require 做对照测试。
+ */
+(function (g) {
+  "use strict";
+
+  var NEG = new Set(["没", "不", "无", "非", "别"]);
+
+  /* ---------- fault_kb.py ---------- */
+  function findCase(cases, text) {
+    for (var i = 0; i < cases.length; i++) {
+      var kws = cases[i].keywords || [];
+      for (var j = 0; j < kws.length; j++) {
+        if (text.indexOf(kws[j]) !== -1) return cases[i];
+      }
+    }
+    return null;
+  }
+
+  // 长词优先，且关键词前紧挨否定字（没/不/无…）时不算命中
+  function hit(text, keywords) {
+    var sorted = keywords.slice().sort(function (a, b) { return b.length - a.length; });
+    for (var i = 0; i < sorted.length; i++) {
+      var kw = sorted[i], start = 0;
+      for (;;) {
+        var idx = text.indexOf(kw, start);
+        if (idx === -1) break;
+        var prev = idx > 0 ? text.charAt(idx - 1) : "";
+        if (!NEG.has(prev)) return true;
+        start = idx + kw.length;
+      }
+    }
+    return false;
+  }
+
+  function triage(cs, text) {
+    var items = cs.triage || [];
+    for (var i = 0; i < items.length; i++) {
+      if (hit(text, items[i].keywords)) return { advice: items[i].advice, goto: -1 };
+    }
+    return null;
+  }
+
+  /* ---------- qa.py ---------- */
+  var FALLBACK_FIRST =
+    "我还没听明白。你能说一下是哪种设备、出现了什么现象吗？\n" +
+    "比如：主轴异响、液压压力上不去、电机过载、机床不启动、导轨卡滞、冷却液泄漏。";
+  var GENERIC_TEMPLATE =
+    "按上面给的步骤检查后，把结果告诉我（比如灯亮不亮、有没有声音、油位够不够），" +
+    "我就能帮你定位到具体是哪里的问题。";
+  var DONE_MESSAGE = "针对「{name}」的排查建议我已经给完了。你可以按上面的步骤检查，或换个故障继续问我。";
+  var TRY_WORDS = ["试了", "试过", "还是", "没用", "不行", "没有用", "怎么办", "怎么处理"];
+
+  function questionOf(cs, step) {
+    var steps = cs.steps || [];
+    if (step >= 0 && step < steps.length) return steps[step].question;
+    return "";
+  }
+
+  function createAssistant(cases) {
+    var sessions = new Map();
+
+    function ask(question, sessionId) {
+      var sid = sessionId || "default";
+
+      // 1) 识别出新故障 -> 开主题，从第 0 步开始
+      var cs = findCase(cases, question);
+      if (cs) {
+        sessions.set(sid, { case: cs, step: 0 });
+        return cs.answer + "\n\n" + questionOf(cs, 0);
+      }
+
+      var sess = sessions.get(sid);
+      if (!sess) return FALLBACK_FIRST;
+
+      cs = sess.case;
+      var steps = cs.steps || [];
+
+      // 2) 没等问就直接说出具体现象 -> 快捷分诊
+      var t = triage(cs, question);
+      if (t) {
+        sess.step = t.goto;
+        return t.advice;
+      }
+
+      // 3) 命中当前这一步的回答 -> 给建议并推进
+      if (sess.step >= 0 && sess.step < steps.length) {
+        var branches = steps[sess.step].branches || [];
+        for (var i = 0; i < branches.length; i++) {
+          var b = branches[i];
+          if (hit(question, b.keywords)) {
+            var goto = (b.goto === undefined || b.goto === null) ? -1 : b.goto;
+            sess.step = goto;
+            var nxt = questionOf(cs, goto);
+            return b.advice + (nxt ? "\n\n" + nxt : "");
+          }
+        }
+      }
+
+      // 4) 用户反馈"试了/还是不行"
+      for (var j = 0; j < TRY_WORDS.length; j++) {
+        if (question.indexOf(TRY_WORDS[j]) !== -1) return GENERIC_TEMPLATE;
+      }
+
+      // 5) 兜底：引用用户原话 + 当前排查进度
+      if (sess.step === -1) return DONE_MESSAGE.replace("{name}", cs.name);
+      var qNow = questionOf(cs, sess.step) || "直接描述一下故障现象";
+      return (
+        "你说的「" + question + "」我还没对上号。我现在想确认：" + qNow + "\n" +
+        "直接回 有/没有 或 是/不是，或者补设备型号/具体现象；要是换了故障，直接说故障名就行。"
+      );
+    }
+
+    function reset(sessionId) {
+      sessions.delete(sessionId || "default");
+    }
+
+    function state(sessionId) {
+      var s = sessions.get(sessionId || "default");
+      return s ? { name: s.case.name, step: s.step } : null;
+    }
+
+    return { ask: ask, reset: reset, state: state, cases: cases };
+  }
+
+  var api = {
+    findCase: findCase,
+    hit: hit,
+    triage: triage,
+    questionOf: questionOf,
+    createAssistant: createAssistant,
+    messages: { FALLBACK_FIRST: FALLBACK_FIRST, GENERIC_TEMPLATE: GENERIC_TEMPLATE, DONE_MESSAGE: DONE_MESSAGE }
+  };
+
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  g.FaultCore = api;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/* 车间设备故障问答助手 —— 页面交互 */
+(function () {
+  "use strict";
+
+  var chat = document.getElementById("chat");
+  var input = document.getElementById("input");
+  var sendBtn = document.getElementById("send");
+  var chips = document.getElementById("chips");
+  var status = document.getElementById("status");
+  var resetBtn = document.getElementById("reset");
+
+  var SESSION = "demo";
+  var fa = FaultCore.createAssistant(window.__FAULT_CASES__);
+  var tip = chat.firstElementChild ? chat.firstElementChild.cloneNode(true) : null;
+
+  var SAMPLES = [
+    "主轴异响",
+    "液压压力上不去",
+    "电机过载报警",
+    "机床不启动",
+    "导轨卡滞",
+    "冷却液泄漏"
+  ];
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function scroll() { chat.scrollTop = chat.scrollHeight; }
+
+  function addMsg(text, who) {
+    var div = el("div", "bubble " + who, text);
+    chat.appendChild(div);
+    scroll();
+  }
+
+  function refreshStatus() {
+    var st = fa.state(SESSION);
+    if (!st) { status.textContent = "未开始 · 说一个故障现象开始"; return; }
+    status.textContent = st.step === -1
+      ? "当前主题：" + st.name + " · 建议已给完"
+      : "当前主题：" + st.name + " · 第 " + (st.step + 1) + " 步追问";
+  }
+
+  function ask(text) {
+    var q = (text !== undefined ? text : input.value).trim();
+    if (!q) return;
+    addMsg(q, "user");
+    input.value = "";
+    var a = fa.ask(q, SESSION);
+    addMsg(a, "bot");
+    refreshStatus();
+    input.focus();
+  }
+
+  SAMPLES.forEach(function (s) {
+    var b = el("button", "chip", s);
+    b.type = "button";
+    b.addEventListener("click", function () { ask(s); });
+    chips.appendChild(b);
+  });
+
+  resetBtn.addEventListener("click", function () {
+    fa.reset(SESSION);
+    chat.innerHTML = "";
+    if (tip) chat.appendChild(tip.cloneNode(true));
+    refreshStatus();
+    input.focus();
+  });
+
+  sendBtn.addEventListener("click", function () { ask(); });
+  input.addEventListener("keydown", function (e) { if (e.key === "Enter") ask(); });
+
+  refreshStatus();
+
+  // 截图/演示用：地址带 #demo 时自动走一轮
+  if (location.hash === "#demo") ask(SAMPLES[0]);
+})();
+
+</script>
+</body>
+</html>
